@@ -1,0 +1,161 @@
+!!python/object/new:Mixins.Savable.PickledCollection
+listitems:
+- &id006
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id001 !!python/object:Container.CodeBlock
+      args: {maxStep: 1, maxValue: 1, minStep: 1, minValue: 0, start: 1}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [6, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 0
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'RandomGenerator_1'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode '/home/lcapocchi/svn/devsimpy/version-2.9/Domain/Generator/RandomGenerator.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [85.0, 185.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [60.0, 160.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - &id002 !!python/object:Container.CodeBlock
+      args: {freq: 0.2, ip: 193.48.30.238, port: 5001}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 277.0
+      id: 2
+      image_path: !!python/unicode '/home/lcapocchi/svn/devsimpy/version-2.9/Domain/Phidgets/Board.amd/55dd10f1-af7a-4a41-82c5-eff3f714819b.jpg'
+      input: 7
+      input_direction: ouest
+      label: !!python/unicode 'Board_0'
+      label_pos: bottom
+      last_name_saved: ''
+      lock_flag: false
+      model_path: !!python/unicode '/home/lcapocchi/svn/devsimpy/version-2.9/Domain/Phidgets/Board.amd'
+      nb_copy: 0
+      output: 16
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode '/home/lcapocchi/svn/devsimpy/version-2.9/Domain/Phidgets/Board.amd/Atomic_Name.py'
+      selected: false
+      w: 325.0
+      x: !!python/object/apply:array.array
+      - d
+      - [282.0, 607.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [75.0, 352.0]
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [185.0, 282.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [110.0, 109.625]
+  - *id001
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id002
+    - 8
+    lock_flag: false
+    output: !!python/tuple
+    - &id003 !!python/object:Container.DiskGUI
+      args: {col: 0, comma: ' ', eventAxis: false, ext: .dat, fileName: '/home/lcapocchi/svn/devsimpy/version-2.9/result15'}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 1
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'To_Disk_0'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode '/home/lcapocchi/svn/devsimpy/version-2.9/Domain/Collector/To_Disk.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [733.0, 833.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [168.0, 268.0]
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [607.0, 733.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [221.6470588235294, 218.0]
+  - *id003
+  - *id002
+- &id005 []
+- &id004 {}
+state:
+  obj: !!python/object:Container.Diagram
+    constants_dico: *id004
+    deletedCodeBlockId: []
+    deletedContainerBlockId: []
+    deletediPortId: []
+    deletedoPortId: []
+    devsModel: null
+    last_name_saved: !!python/unicode '/home/lcapocchi/mysite/static/yaml/phidget_light1.yaml'
+    modify: false
+    nbCodeBlock: 3
+    nbContainerBlock: 0
+    nbiPort: 0
+    nboPort: 0
+    parent: null
+    priority_list: *id005
+    shapes: *id006
+  pickled_obj:
+  - *id006
+  - *id005
+  - *id004

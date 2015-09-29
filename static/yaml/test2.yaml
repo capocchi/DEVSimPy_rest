@@ -1,0 +1,292 @@
+!!python/object/new:Mixins.Savable.PickledCollection
+listitems:
+- &id008
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id001 !!python/object:Container.CodeBlock
+      args: {k: 1.0}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 4
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'Gain_4'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\PowerSystem\Continuous\Gain.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [441.0, 541.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [34.0, 134.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - &id002 !!python/object:Container.ScopeGUI
+      args: {eventAxis: false, fusion: true}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output, xlabel,
+        ylabel]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [8, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 1
+      image_path: ''
+      input: 2
+      input_direction: ouest
+      label: !!python/unicode 'QuickScope_1'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Collector\QuickScope.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [580.0, 680.0]
+      xlabel: ''
+      y: !!python/object/apply:array.array
+      - d
+      - [307.0, 407.0]
+      ylabel: ''
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [541.0, 580.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [84.0, 340.3333333333333]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id004 !!python/object:Container.CodeBlock
+      args: {maxStep: 1, maxValue: 10, minStep: 1, minValue: 0}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [6, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 2
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'RandomGenerator_2'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Generator\RandomGenerator.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [28.0, 128.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [187.0, 287.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id001
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [128.0, 441.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [237.0, 84.0]
+  - *id001
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id003 !!python/object:Container.CodeBlock
+      args: {maxStep: 1, maxValue: 10, minStep: 1, minValue: 0}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [6, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 3
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'RandomGenerator_3'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Generator\RandomGenerator.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [38.0, 138.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [400.0, 500.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id002
+    - 1
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [138.0, 580.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [450.0, 373.6666666666667]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id003
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - &id005 !!python/object:Container.ScopeGUI
+      args: {eventAxis: false, fusion: true}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output, xlabel,
+        ylabel]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [8, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 0
+      image_path: ''
+      input: 2
+      input_direction: ouest
+      label: !!python/unicode 'QuickScope_0'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Collector\QuickScope.py'
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [376.0, 476.0]
+      xlabel: ''
+      y: !!python/object/apply:array.array
+      - d
+      - [208.0, 308.0]
+      ylabel: ''
+    - 1
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [138.0, 376.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [450.0, 274.6666666666667]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id004
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id005
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [128.0, 376.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [237.0, 241.33333333333334]
+  - *id003
+  - *id004
+  - *id002
+  - *id005
+- &id007 []
+- &id006 {}
+state:
+  obj: !!python/object:Container.Diagram
+    constants_dico: *id006
+    deletedCodeBlockId: []
+    deletedContainerBlockId: []
+    deletediPortId: []
+    deletedoPortId: []
+    devsModel: null
+    last_name_saved: !!python/unicode 'C:\Users\capocchi_l.UDCPP\Desktop\test2.yaml'
+    modify: false
+    nbCodeBlock: 5
+    nbContainerBlock: 0
+    nbiPort: 0
+    nboPort: 0
+    parent: null
+    priority_list: *id007
+    shapes: *id008
+  pickled_obj:
+  - *id008
+  - *id007
+  - *id006
