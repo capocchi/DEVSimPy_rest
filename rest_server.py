@@ -199,7 +199,7 @@ def labels_yaml():
 
     except:
 
-        return {'success':False}
+        return {'success':False, 'cmd':cmd}
 
 @route('/json', method=['OPTIONS', 'GET'])
 @enable_cors
@@ -257,35 +257,38 @@ def simulate():
             ### dsp or yaml file
             dsp_file = os.path.join(path, name_param)
 
-            ### command to be execut
-            cmd = "python2.7 "+python_file+dsp_file+" "+time_param
+            ### command to be executed
+            ### if the command is a string, it can only be executed with shell=True option
+            ### and then it is not possible to interact with the process
+            cmd = ['python2.7', python_file, dsp_file, str(time_param)]
+            output = ""
 
-            ### simulation completed (output is json format)
-            #output = subprocess.check_output(cmd, shell=True)
+            ### launch simulation
+            try:
+                fout = open('simuout.dat', 'w+')
+                process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT)
+                process.wait()
+            except:
+                output = 'error processing '+cmd[0]+' '+cmd[1]+' '+cmd[2]+' '+cmd[3]
+            finally:
+                fout.seek(0,0) # necessary? TODO
+                for line in fout:
+                    output = output + line
+                fout.close()
 
-            p = EasyProcess(cmd)
             ### add proc in proc_sim_dict for name_param
             #if name_param in proc_sim_dict:
             #    proc_sim_dict[name_param].append(p)
             #else:
             #    proc_sim_dict[name_param] = []
-            try:
-                ### execute the simulation proc with timeout (1 day max)
-                d = eval(p.call(timeout=86400).stdout)
-                ### PID of proc
-                pid = p.pid
-                ### update the output by adding the pid number
-                d.update({'success':True, 'PID':str(pid)})
 
-            except Exception, info:
-                d="{'success':False, 'info':'"+str(info)+"', 'cmd':'"+cmd+"'}"
-            #output = str(d)
+
             ### delete the proc from proc_sim_dict
             #try:
             #    del proc_sim_dict[name_param][p]
             #except:
             #    pass
-            output = subprocess.check_output(cmd, shell=True) # str(d)
+
         else:
             ### simulation failed
             output = {'success':False, 'info': "time must be digit!"}
