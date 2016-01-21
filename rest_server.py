@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 import json
+import signal
 
 import __builtin__
 
@@ -234,7 +235,6 @@ def recipes_json():
 def simulate():
     """
     """
-
     ### get param coming from url
     name_param = request.params.name
     time_param = request.params.time
@@ -261,33 +261,18 @@ def simulate():
             ### if the command is a string, it can only be executed with shell=True option
             ### and then it is not possible to interact with the process
             cmd = ['python2.7', python_file, dsp_file, str(time_param)]
-            output = ""
+            #cmd = ['python2.7', '/home/celinekessler/testdate.py']
+            output = "simulation in progress"
 
             ### launch simulation
             try:
                 fout = open('simuout.dat', 'w+')
-                process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT)
-                process.wait()
+                process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT)# !! bloquant ???
+                # ??? proc_sim_dict contient bien les infos nécessaires pour pause/resume
+                # mais la réponse n'est pas envoyée ???
+                proc_sim_dict[name_param] = {'process':process, 'output':fout}
             except:
-                output = 'error processing '+cmd[0]+' '+cmd[1]+' '+cmd[2]+' '+cmd[3]
-            finally:
-                fout.seek(0,0) # necessary? TODO
-                for line in fout:
-                    output = output + line
-                fout.close()
-
-            ### add proc in proc_sim_dict for name_param
-            #if name_param in proc_sim_dict:
-            #    proc_sim_dict[name_param].append(p)
-            #else:
-            #    proc_sim_dict[name_param] = []
-
-
-            ### delete the proc from proc_sim_dict
-            #try:
-            #    del proc_sim_dict[name_param][p]
-            #except:
-            #    pass
+                output = {'success':False, 'info': 'error processing '+cmd[0]+' '+cmd[1]+' '+cmd[2]+' '+cmd[3]}
 
         else:
             ### simulation failed
@@ -297,6 +282,61 @@ def simulate():
         output = {'success':False, 'info': "file does not exist!"}
 
     return output
+
+@route('/result', method=['OPTIONS', 'GET'])
+@enable_cors
+def result():
+    name_param = request.params.name
+    #TODO verif process fini
+    fout = proc_sim_dict[name_param]['output']
+    output = ""
+    fout.seek(0,0)
+    for line in fout:
+        output = output + line
+    fout.close()
+    #TODO del dict_proc_sim
+    return output
+
+@route('/pause', method=['OPTIONS', 'GET'])
+@enable_cors
+def pause():
+    """
+    """
+    ### get param coming from url
+    name_param = request.params.name
+
+    if (proc_sim_dict.has_key(name_param)):
+        #try:
+            process = proc_sim_dict[name_param]['process']
+            fout    = proc_sim_dict[name_param]['output']
+            process.send_signal(signal.SIGSTOP)
+            #fout.close()
+            return "Simulation paused"
+        #except Exception:
+            #return str(Exception)
+    else:
+        return "no simulation in progress named " + name_param
+
+@route('/resume', method=['OPTIONS', 'GET'])
+@enable_cors
+def resume():
+    """
+    """
+    ### get param coming from url
+    name_param = request.params.name
+    #TODO test si le process est en pause
+    if (proc_sim_dict.has_key(name_param)):
+        try:
+            process = proc_sim_dict[name_param]['process']
+            #fout    = proc_sim_dict[name_param]['output']
+            #fout = open('simuout.dat', a)
+            process.send_signal(signal.SIGCONT)
+            return "Simulation resumed"
+        except Exception:
+            return str(Exception)
+    else:
+        return "No simulation named " + name_param + " in progress"
+
 
 @route('/plot', method=['OPTIONS', 'GET'])
 @enable_cors
