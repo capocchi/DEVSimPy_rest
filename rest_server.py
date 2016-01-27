@@ -1,11 +1,11 @@
 from bottle import default_app, route, debug, static_file, response, request
-from easyprocess import EasyProcess
 
 import os
 import subprocess
 import time
 import json
 import signal
+from datetime import datetime
 
 import __builtin__
 
@@ -163,21 +163,21 @@ def save_yaml():
     ### update filename abs path
     data['filename'] = yaml_path
 
-    obj = json.dumps(data)
+    obj = json.dumps(data) # JSON to string
 
-    try:
+    #try:
 
-        ### command to be execut
-        cmd = "python2.7 "+python_file+" -update "+"\""+str(obj.replace("\"","'"))+"\""
+    ### command to be execut
+    cmd = "python2.7 "+python_file+" -update "+"\""+str(obj.replace("\"","'"))+"\""
 
-        ### transformation completed (output is json format)
-        output = subprocess.check_output(cmd, shell=True)
+    ### transformation completed (output is json format)
+    output = subprocess.check_output(cmd, shell=True)
 
-        return {'success':True, 'cmd':cmd}
+    return {'success':True, 'cmd':cmd, 'output':output}
 
-    except:
+    #except: Si on traite l'exception ici on n'a plus le rapport dans la reponse
 
-        return {'success':False}
+        #return {'success':False}
 
 ### lcapocchi.pythonanywhere.com/yaml/labels?name=test1.yaml
 @route('/yaml/labels', method=['OPTIONS', 'GET'])
@@ -215,11 +215,11 @@ def recipes_json():
     if name_param.endswith(('.dsp', '.yaml')):
         dsp_file = os.path.join(dsp_path_dir if name_param.endswith('.dsp') else yaml_path_dir, name_param)
 
-        ### command to be execut
-        cmd = "python2.7 "+python_file+dsp_file+" -json"
+        ### command to be executed
+        cmd = ["python2.7", python_file, dsp_file,"-json"]
 
         ### transformation completed (output is json format)
-        output = subprocess.check_output(cmd, shell=True)
+        output = subprocess.check_output(cmd)
 
     else:
         ### generation failed
@@ -238,6 +238,8 @@ def simulate():
     ### get param coming from url
     name_param = request.params.name
     time_param = request.params.time
+
+    dateStart = datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S:%f")
 
     ### if no time limit and .dsp or .yaml file, we can simulate
     if name_param.endswith(('.dsp', '.yaml')):
@@ -261,27 +263,50 @@ def simulate():
             ### if the command is a string, it can only be executed with shell=True option
             ### and then it is not possible to interact with the process
             cmd = ['python2.7', python_file, dsp_file, str(time_param)]
-            #cmd = ['python2.7', '/home/celinekessler/testdate.py']
-            output = "simulation in progress"
 
             ### launch simulation
             try:
                 fout = open('simuout.dat', 'w+')
-                process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT)# !! bloquant ???
-                # ??? proc_sim_dict contient bien les infos nécessaires pour pause/resume
-                # mais la réponse n'est pas envoyée ???
-                proc_sim_dict[name_param] = {'process':process, 'output':fout}
+                #fin = open('user.in', 'w+')
+                fin = open('user.in', 'w')
+                fin.close()
+                process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT, close_fds=True)
+                # Call to Popen is non-blocking, BUT, the child process inherits the file descriptors from the parent,
+                # and that will include the web app connection to the WSGI server,
+                # so the process needs to run and finish before the connection is released and the server notices that the request is finished.
+                # This is solved by passing close_fds=True to Popen
+                proc_sim_dict[name_param] = {'process':process, 'output':fout, 'output_name':'simuout.dat', 'inputname':'user.in'}
+
+                return {'success':True}
             except:
-                output = {'success':False, 'info': 'error processing '+cmd[0]+' '+cmd[1]+' '+cmd[2]+' '+cmd[3]}
+                return {'success':False, 'info': 'error processing '+cmd[0]+' '+cmd[1]+' '+cmd[2]+' '+cmd[3]}
 
         else:
             ### simulation failed
-            output = {'success':False, 'info': "time must be digit!"}
+            return {'success':False, 'info': "time must be digit!"}
     else:
         ### simulation failed
-        output = {'success':False, 'info': "file does not exist!"}
+        return {'success':False, 'info': "file does not exist!"+request.params.name}
 
-    return output
+    #return {'dateStart':dateStart, 'dateStop': datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S:%f")}
+    #return output
+
+@route('/modify', method=['POST'])
+@enable_cors
+def modify():
+    #return request.params
+    data = request.json
+    simu_name = data['simulation_name']
+    if (proc_sim_dict.has_key(simu_name)):
+        #fin = proc_sim_dict[simu_name]['input'] !!! not working ???
+        fin = open(proc_sim_dict[simu_name]['inputname'], 'a')
+        del data['simulation_name']
+        data['date'] = datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S:%f")
+        fin.write(json.dumps(data))
+        fin.close()
+        return "Modification done "
+    else:
+        return "no simulation in progress named " + simu_name
 
 @route('/result', method=['OPTIONS', 'GET'])
 @enable_cors
@@ -289,6 +314,7 @@ def result():
     name_param = request.params.name
     #TODO verif process fini
     fout = proc_sim_dict[name_param]['output']
+    if fout.closed: fout=open('simuout.dat', 'r')# stocker le nom du fichier dans le dictionnaire ou BD SQLite
     output = ""
     fout.seek(0,0)
     for line in fout:
@@ -308,7 +334,7 @@ def pause():
     if (proc_sim_dict.has_key(name_param)):
         #try:
             process = proc_sim_dict[name_param]['process']
-            fout    = proc_sim_dict[name_param]['output']
+            #fout    = proc_sim_dict[name_param]['output']
             process.send_signal(signal.SIGSTOP)
             #fout.close()
             return "Simulation paused"
@@ -332,6 +358,24 @@ def resume():
             #fout = open('simuout.dat', a)
             process.send_signal(signal.SIGCONT)
             return "Simulation resumed"
+        except Exception:
+            return str(Exception)
+    else:
+        return "No simulation named " + name_param + " in progress"
+
+@route('/kill', method=['OPTIONS', 'GET'])
+@enable_cors
+def kill():
+    """
+    """
+    ### get param coming from url
+    name_param = request.params.name
+    #TODO test si le process est en pause
+    if (proc_sim_dict.has_key(name_param)):
+        try:
+            process = proc_sim_dict[name_param]['process']
+            process.send_signal(signal.SIGKILL)
+            return "Simulation killed"
         except Exception:
             return str(Exception)
     else:
