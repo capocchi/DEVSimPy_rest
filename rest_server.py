@@ -1,10 +1,12 @@
 from bottle import default_app, route, debug, static_file, response, request
-from easyprocess import EasyProcess
 
 import os
 import subprocess
 import time
 import json
+import signal
+import socket
+from datetime import datetime
 
 import __builtin__
 
@@ -15,7 +17,7 @@ __builtin__.__dict__['DEVS_DIR_PATH_DICT'] = {}
 from param import *
 
 ### dict of simulation proc
-proc_sim_dict = {}
+running_sim = {}
 
 # the decorator
 def enable_cors(fn):
@@ -30,19 +32,6 @@ def enable_cors(fn):
             return fn(*args, **kwargs)
 
     return _enable_cors
-
-@route('/img/<filepath:path>')
-def server_img(filepath):
-    return static_file(filepath, root=os.path.join(current_path,'static','img'))
-
-@route('/dsp/<filepath:path>')
-def server_dsp(filepath):
-    return static_file(filepath, root=os.path.join(current_path,'static','dsp'))
-
-@route('/')
-@enable_cors
-def serve_homepage():
-    return static_file('index.html', root=os.path.join(current_path, 'static'))
 
 ############################################################################
 #
@@ -90,7 +79,6 @@ def group(lst, n):
 def getJointJs(d):
     """ return the json for JOIN
     """
-
     ### get param coming from url
     name = request.params.name
 
@@ -105,10 +93,27 @@ def getJointJs(d):
     ### return list of tuples of connected models
     return str(group(map(lambda b: b.split(' ')[-1], filter(lambda a: 'label' in a, docs)),2))
 
-def getYAML(name):
-    """ Get Yaml description from file name
-    """
+############################################################################
+#
+#       Routes
+#
+############################################################################
+@route('/img/<filepath:path>')
+def server_img(filepath):
+    return static_file(filepath, root=os.path.join(current_path,'static','img'))
 
+############################################################################
+@route('/dsp/<filepath:path>')
+def server_dsp(filepath):
+    return static_file(filepath, root=os.path.join(current_path,'static','dsp'))
+
+############################################################################
+@route('/')
+@enable_cors
+def serve_homepage():
+    return static_file('index.html', root=os.path.join(current_path, 'static'))
+
+############################################################################
 @route('/info', method=['OPTIONS', 'GET'])
 @enable_cors
 def recipes_info():
@@ -116,11 +121,11 @@ def recipes_info():
     """
     from platform import python_version
 
-    data = {'devsimpy-version':os.path.basename(os.path.dirname(python_file)),
-            'devsimpy-libraries': filter(lambda a: a not in [".directory", "Basic", "__init__.py"], os.listdir(os.path.join(os.path.dirname(python_file), 'Domain'))),
+    data = {'devsimpy-version':os.path.basename(os.path.dirname(devsimpy_nogui)),
+            'devsimpy-libraries': filter(lambda a: a not in [".directory", "Basic", "__init__.py"], os.listdir(os.path.join(os.path.dirname(devsimpy_nogui), 'Domain'))),
             'python-version': python_version(),
             ### TODO read __init__.py to build plugins list
-            'devsimpy-plugins':filter(lambda a: a not in ["__init__.py"], os.listdir(os.path.join(os.path.dirname(python_file), 'plugins'))),
+            'devsimpy-plugins':filter(lambda a: a not in ["__init__.py"], os.listdir(os.path.join(os.path.dirname(devsimpy_nogui), 'plugins'))),
             'url-server':url_server,
             'machine-server': subprocess.check_output("uname -m", shell=True),
             'os-server': subprocess.check_output("uname -o", shell=True),
@@ -129,12 +134,12 @@ def recipes_info():
 
     return data
 
+############################################################################
 @route('/yaml', method=['OPTIONS', 'GET'])
 @enable_cors
 def recipes_yaml():
     """ Get yaml description
     """
-
     if 'all' in request.params:
         data = getYAMLFiles()
     elif 'name' in request.params:
@@ -146,67 +151,55 @@ def recipes_yaml():
 
     return { "success": data!={} and data!=[], "content": data }
 
+############################################################################
+### POST body example :
+### {"filename":"test.yaml",
+###  "model":"RandomGenerator_0",
+###  "args":{"maxStep":"1",
+###          "maxValue":"100",
+###          "minStep":"1",
+###          "minValue":"0",
+###          "start":"0"}}
 @route('/yaml/save', method=['OPTIONS', 'POST'])
 @enable_cors
 def save_yaml():
     """ Update yaml file from devsimpy-mob
     """
+    # read POST data as JSON
     data = request.json
+    # update filename to absolute path
+    data['filename'] = os.path.join(yaml_path_dir, data['filename'])
+    # Get the expected input string from JSON model and args data
+    dataS1 = json.dumps(data)
+    dataS2 = str(dataS1.replace("\"","'"))
 
-    yaml = data['filename']
-    model = data['model']
-    args = data['args']
+    # perform update (blocking operation)
+    cmd = ["python2.7", devsimpy_nogui, "-update", dataS2]
+    output = subprocess.check_output(cmd) #empty
 
-    yaml_path = os.path.join(yaml_path_dir, yaml)
+    return {'success':True, 'output':output}
 
-    ### update filename abs path
-    data['filename'] = yaml_path
-
-    obj = json.dumps(data)
-
-    try:
-
-        ### command to be execut
-        cmd = "python2.7 "+python_file+" -update "+"\""+str(obj.replace("\"","'"))+"\""
-
-        ### transformation completed (output is json format)
-        output = subprocess.check_output(cmd, shell=True)
-
-        return {'success':True, 'cmd':cmd}
-
-    except:
-
-        return {'success':False}
-
-### lcapocchi.pythonanywhere.com/yaml/labels?name=test1.yaml
+############################################################################
+### xxx.pythonanywhere.com/yaml/labels?name=test1.yaml
 @route('/yaml/labels', method=['OPTIONS', 'GET'])
 @enable_cors
 def labels_yaml():
-    """ get the models block list of yaml
+    """ get the model blocks list from yaml
     """
-    ### get param coming from url
-    name_param = request.params.name
+    # get the models names (blocking operation)
+    cmd = ["python2.7", devsimpy_nogui, "-models", os.path.join(yaml_path_dir, request.params.name)]
+    output = subprocess.check_output(cmd) # output is JSON, rstrip('\r\n') makes it easier to read by human
 
-    try:
+    return {'success':True, 'output':eval(output.rstrip('\r\n'))}
 
-        ### command to be execut
-        cmd = "python2.7 "+python_file+" -models "+os.path.join(yaml_path_dir, name_param)
 
-        ### transformation completed (output is json format)
-        output = subprocess.check_output(cmd, shell=True)
-
-        return {'success':True, 'output':eval(output.rstrip('\r\n'))}
-
-    except:
-
-        return {'success':False}
-
+############################################################################
+### xxx.pythonanywhere.com/json?name=test1.yaml
 @route('/json', method=['OPTIONS', 'GET'])
 @enable_cors
 def recipes_json():
     """
     """
-
     ### get param coming from url
     name_param = request.params.name
 
@@ -214,11 +207,11 @@ def recipes_json():
     if name_param.endswith(('.dsp', '.yaml')):
         dsp_file = os.path.join(dsp_path_dir if name_param.endswith('.dsp') else yaml_path_dir, name_param)
 
-        ### command to be execut
-        cmd = "python2.7 "+python_file+dsp_file+" -json"
+        ### command to be executed
+        cmd = ["python2.7", devsimpy_nogui, dsp_file,"-json"]
 
         ### transformation completed (output is json format)
-        output = subprocess.check_output(cmd, shell=True)
+        output = subprocess.check_output(cmd)
 
     else:
         ### generation failed
@@ -226,7 +219,8 @@ def recipes_json():
 
     return output
 
-### simulate the dsp file
+############################################################################
+### simulate the model identified by its dsp or yaml file
 ### /simulate?name=test.dsp&time=10
 ### or /simulate?name=test.yaml&time=10
 @route('/simulate', method=['OPTIONS', 'GET'])
@@ -234,84 +228,147 @@ def recipes_json():
 def simulate():
     """
     """
+    ### Check that the given model name is valid
+    model_filename     = request.params.name
+    path               = dsp_path_dir if model_filename.endswith('.dsp') else yaml_path_dir
+    abs_model_filename = os.path.join(path, model_filename)
+    if not os.path.exists(abs_model_filename):
+        return {'success':False, 'info': "file does not exist! "+ abs_model_filename}
 
-    ### get param coming from url
-    name_param = request.params.name
-    time_param = request.params.time
+    ### Check that the given simulation duration is valid
+    sim_duration = request.params.time
+    if sim_duration in ('ntl', 'inf'):
+        sim_duration = "10000000"
+    if not sim_duration.isdigit():
+        return {'success':False, 'info': "time must be digit!"}
 
-    ### if no time limit and .dsp or .yaml file, we can simulate
-    if name_param.endswith(('.dsp', '.yaml')):
+    ### Delete old result files .dat
+    for name in filter(lambda fn: fn.endswith('.dat') and fn.split('_')[0] == os.path.splitext(model_filename)[0], os.listdir(path)):
+        os.remove(os.path.join(path, name))
 
-        if time_param in ('ntl', 'inf'):
-            time_param = "10000000"
+    ### Launch simulation
+    ### NB : Don't set shell=True because then it is not possible to interact with the process inside the shell
+    cmd = ['python2.7', devsimpy_nogui, abs_model_filename, str(sim_duration)]
+    fout = open('simuout.dat', 'w+') # where simulation execution report will be written
+    #fin  = open('user.in', 'w') # where interaction with user will be written
+    process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT, close_fds=True)
+    #output = subprocess.check_output(cmd)
+    # Call to Popen is non-blocking, BUT, the child process inherits the file descriptors from the parent,
+    # and that will include the web app connection to the WSGI server,
+    # so the process needs to run and finish before the connection is released and the server notices that the request is finished.
+    # This is solved by passing close_fds=True to Popen
+    running_sim[model_filename] = {'process':process, 'output_name':'simuout.dat', 'input_name':'user.in'}
 
-        if time_param.isdigit():
+    return {'success': True}
 
-            ### path dir of model and .dat
-            path = dsp_path_dir if name_param.endswith('.dsp') else yaml_path_dir
-
-            ### delete old .dat ofr the model
-            for name in filter(lambda fn: fn.endswith('.dat') and fn.split('_')[0] == os.path.splitext(name_param)[0], os.listdir(path)):
-                os.remove(os.path.join(path, name))
-
-            ### dsp or yaml file
-            dsp_file = os.path.join(path, name_param)
-
-            ### command to be execut
-            cmd = "python2.7 "+python_file+dsp_file+" "+time_param
-
-            ### simulation completed (output is json format)
-            #output = subprocess.check_output(cmd, shell=True)
-
-            p = EasyProcess(cmd)
-            ### add proc in proc_sim_dict for name_param
-            #if name_param in proc_sim_dict:
-            #    proc_sim_dict[name_param].append(p)
-            #else:
-            #    proc_sim_dict[name_param] = []
-            try:
-                ### execute the simulation proc with timeout (1 day max)
-                d = eval(p.call(timeout=86400).stdout)
-                ### PID of proc
-                pid = p.pid
-                ### update the output by adding the pid number
-                d.update({'success':True, 'PID':str(pid)})
-
-            except Exception, info:
-                d="{'success':False, 'info':'"+str(info)+"', 'cmd':'"+cmd+"'}"
-            #output = str(d)
-            ### delete the proc from proc_sim_dict
-            #try:
-            #    del proc_sim_dict[name_param][p]
-            #except:
-            #    pass
-            output = subprocess.check_output(cmd, shell=True) # str(d)
-        else:
-            ### simulation failed
-            output = {'success':False, 'info': "time must be digit!"}
+############################################################################
+### /modify
+### example POST body : {"simulation_name":"test.yaml", "modelID":"A2", "paramName":"maxValue", "paramValue":"50"}
+@route('/modify', method=['POST'])
+@enable_cors
+def modify():
+    data = request.json
+    simu_name = data['simulation_name']
+    if (running_sim.has_key(simu_name)): #TODO test if simulation is in progress
+        #fin = open(running_sim[simu_name]['input_name'], 'a')
+        del data['simulation_name']
+        data['date'] = datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S")
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(('127.0.0.1',5555))
+        s.sendall(json.dumps(data).encode('ascii'))
+        data = s.recv(1024)
+        s.close()
+        #fin.write(json.dumps(data)+'\n')
+        #fin.close()
+        return {'success':True}
     else:
-        ### simulation failed
-        output = {'success':False, 'info': "file does not exist!"}
+        return {'success':False, 'info':"no simulation in progress is named " + simu_name}
 
-    return output
+############################################################################
+### /result?name=test.yaml # TODO rename to status
+@route('/result', method=['OPTIONS', 'GET'])
+@enable_cors
+def result():
+    simu_name = request.params.name
 
+    if not running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    else:
+        running_sim[simu_name]['process'].poll()
+        if (running_sim[simu_name]['process'].returncode == None):
+            return {'success':True, 'info':"simulation " + simu_name + " is running"}
+        else:
+            fout=open(running_sim[simu_name]['output_name'], 'r')
+            output = ""
+            for line in fout:
+                output = output + line
+            fout.close()
+            #TODO del dict_proc_sim when ...?
+            return output#{'success':True, 'report':output}
+
+############################################################################
+### /pause?name=test.yaml
+@route('/pause', method=['OPTIONS', 'GET'])
+@enable_cors
+def pause():
+    """
+    """
+    simu_name = request.params.name
+    if not running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    if (running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + "is terminated"}
+    else:
+        running_sim[simu_name]['process'].send_signal(signal.SIGSTOP)
+        return {'success':True, 'info':"simulation " + simu_name + "is paused"}
+
+
+############################################################################
+### /resume?name=test.yaml
+@route('/resume', method=['OPTIONS', 'GET'])
+@enable_cors
+def resume():
+    """
+    """
+    simu_name = request.params.name
+    if not running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    if (running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + "is terminated"}
+    else:
+        running_sim[simu_name]['process'].send_signal(signal.SIGCONT)
+        return {'success':True, 'info':"simulation " + simu_name + "is resumed"}
+
+############################################################################
+### /kill?name=test.yaml
+@route('/kill', method=['OPTIONS', 'GET'])
+@enable_cors
+def kill():
+    """
+    """
+    simu_name = request.params.name
+    if not running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    if (running_sim[simu_name]['process'].returncode != None):
+        return {'success':True, 'info':"simulation " + simu_name + "is terminated"}
+    else:
+        running_sim[simu_name]['process'].send_signal(signal.SIGKILL)
+        return {'success':True, 'info':"simulation " + simu_name + "is killed"}
+
+############################################################################
+### /pause?name=result.dat
 @route('/plot', method=['OPTIONS', 'GET'])
 @enable_cors
 def plot():
     """
     """
-###    from bokeh.plotting import figure, output_server, show
-###    output_server("line")
-###    p = figure(plot_width=400, plot_height=400)
-###    # add a line renderer
-###    p.line([5, 2, 3, 4, 5], [5, 7, 2, 4, 5], line_width=2)
-##    show(p)
-
     filename = request.params.name
 
+    # Build the diagram data as :
+    # - 1 list of labels (X or Time axis) called category TBC : what if time delta are not constant???
+    # - 1 list of values (Y or Amplitude axis) called data
     data = []
     category = []
-
     with open(os.path.join(yaml_path_dir, filename)) as fp:
         for line in fp:
             a,b = line.split(" ")
@@ -348,19 +405,12 @@ def plot():
 
     return result
 
-#import psutil, time, subprocess
 
-#cmd = "python target.py"
-#P = subprocess.Popen(cmd,shell=True)
-#psProcess = psutil.Process(pid=P.pid)
-
-#while True:
-#    time.sleep(5)
-#    psProcess.suspend()
-#    print 'I am proactively leveraging my synergies!'
-#    psProcess.resume()
-
-
+############################################################################
+#
+#     Application definition
+#
+############################################################################
 debug(True)
 application = default_app()
 
