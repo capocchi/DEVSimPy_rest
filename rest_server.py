@@ -5,6 +5,7 @@ import subprocess
 import time
 import json
 import signal
+import socket
 from datetime import datetime
 
 import __builtin__
@@ -15,8 +16,9 @@ __builtin__.__dict__['DEVS_DIR_PATH_DICT'] = {}
 
 from param import *
 
-### dict of simulation proc
-running_sim = {}
+### global variables
+global_running_sim = {}
+global_simu_id = 0
 
 # the decorator
 def enable_cors(fn):
@@ -92,6 +94,23 @@ def getJointJs(d):
     ### return list of tuples of connected models
     return str(group(map(lambda b: b.split(' ')[-1], filter(lambda a: 'label' in a, docs)),2))
 
+def send_via_socket(simu_name, data):
+    """ send data string to the simulation identified by simu_name
+    """
+    try:
+        socket_id = global_running_sim[simu_name]['socket_id']
+        socket_address = '\0' + socket_id
+        comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        comm_socket.connect(socket_address)
+        comm_socket.sendall(data)
+        status = comm_socket.recv(1024)
+        comm_socket.close()
+    except:
+        comm_socket.close()
+        raise
+
+    return status
+
 ############################################################################
 #
 #       Routes
@@ -130,7 +149,6 @@ def recipes_info():
             'os-server': subprocess.check_output("uname -o", shell=True),
             'machine-version-server': subprocess.check_output("uname -v", shell=True)
             }
-
     return data
 
 ############################################################################
@@ -245,53 +263,68 @@ def simulate():
     for name in filter(lambda fn: fn.endswith('.dat') and fn.split('_')[0] == os.path.splitext(model_filename)[0], os.listdir(path)):
         os.remove(os.path.join(path, name))
 
+    ### Create simulation name
+    model_name     = model_filename.split('.')[0]
+    global global_simu_id
+    global_simu_id += 1
+    simu_name      = model_name + '_' + str(global_simu_id)
+
     ### Launch simulation
     ### NB : Don't set shell=True because then it is not possible to interact with the process inside the shell
-    cmd = ['python2.7', devsimpy_nogui, abs_model_filename, str(sim_duration)]
-    fout = open('simuout.dat', 'w+') # where simulation execution report will be written
-    fin  = open('user.in', 'w') # where interaction with user will be written
+    socket_id = "celinebateaukessler."+simu_name # has to be unique
+    #--> TODO replace with DEVS+username+simu_name
+    # using the user name as a prefix is a convention on PythonAnywhere
+
+    cmd = ['python2.7', devsimpy_nogui, abs_model_filename, str(sim_duration), socket_id]
+    fout = open(simu_name+'.out', 'w+') # where simulation execution report will be written
     process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT, close_fds=True)
+    #output = subprocess.check_output(cmd)
+    #return output
     # Call to Popen is non-blocking, BUT, the child process inherits the file descriptors from the parent,
     # and that will include the web app connection to the WSGI server,
     # so the process needs to run and finish before the connection is released and the server notices that the request is finished.
     # This is solved by passing close_fds=True to Popen
-    running_sim[model_filename] = {'process':process, 'output_name':'simuout.dat', 'input_name':'user.in'}
+    global_running_sim[simu_name] = {'process':process, 'output_name':simu_name+'.out', 'socket_id':socket_id}
+    # TODO could be stored in a DB except for the process : stored in session variable or as a scheduled task (cf PythonAnywhere rules)
 
-    return {'success':True}
+    return {'success': True, 'pid': os.getpid(), 'simulation_name':simu_name}
 
 ############################################################################
 ### /modify
-### example POST body : {"simulation_name":"testInteraction.yaml","OPort":"0","param_name":"outvalue","param_value":"12"}
+### example POST body : {"simulation_name":"test", "modelID":"A2", "paramName":"maxValue", "paramValue":"50"}
 @route('/modify', method=['POST'])
 @enable_cors
 def modify():
     data = request.json
     simu_name = data['simulation_name']
-    if (running_sim.has_key(simu_name)): #TODO test if simulation is in progress
-        fin = open(running_sim[simu_name]['input_name'], 'a')
+    if (global_running_sim.has_key(simu_name)):
+        global_running_sim[simu_name]['process'].poll()
+        if (global_running_sim[simu_name]['process'].returncode != None):
+            return {'success':False, 'info':"simulation " + simu_name + " is not in progress"}
+        #if (global_running_sim[simu_name]['paused'] == False): #TODO
+        #    return {'success':False, 'info':"simulation " + simu_name + " is not paused"}
         del data['simulation_name']
         data['date'] = datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S")
-        fin.write(json.dumps(data)+'\n')
-        fin.close()
-        return {'success':True}
+        status = send_via_socket(simu_name, json.dumps(data))
+        return {'status':status}
     else:
         return {'success':False, 'info':"no simulation in progress is named " + simu_name}
 
 ############################################################################
-### /result?name=test.yaml # TODO rename to status
+### /result?name=test # TODO rename to status
 @route('/result', method=['OPTIONS', 'GET'])
 @enable_cors
 def result():
     simu_name = request.params.name
 
-    if not running_sim.has_key(simu_name):
+    if not global_running_sim.has_key(simu_name):
         return {'success':False, 'info':"no simulation is named " + simu_name}
     else:
-        running_sim[simu_name]['process'].poll()
-        if (running_sim[simu_name]['process'].returncode == None):
+        global_running_sim[simu_name]['process'].poll()
+        if (global_running_sim[simu_name]['process'].returncode == None):
             return {'success':True, 'info':"simulation " + simu_name + " is running"}
         else:
-            fout=open(running_sim[simu_name]['output_name'], 'r')
+            fout=open(global_running_sim[simu_name]['output_name'], 'r')
             output = ""
             for line in fout:
                 output = output + line
@@ -300,53 +333,92 @@ def result():
             return output#{'success':True, 'report':output}
 
 ############################################################################
+### /process_pause?name=test.yaml
+@route('/process_pause', method=['OPTIONS', 'GET'])
+@enable_cors
+def process_pause():
+    """
+    """
+    simu_name = request.params.name
+    if not global_running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    global_running_sim[simu_name]['process'].poll()
+    if (global_running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
+    else:
+        global_running_sim[simu_name]['process'].send_signal(signal.SIGSTOP)
+        return {'success':True, 'info':"simulation " + simu_name + " is paused"}
+
+############################################################################
 ### /pause?name=test.yaml
+### suspends the simulation thread but not the wrapping process
 @route('/pause', method=['OPTIONS', 'GET'])
 @enable_cors
 def pause():
     """
     """
     simu_name = request.params.name
-    if not running_sim.has_key(simu_name):
+    if not global_running_sim.has_key(simu_name):
         return {'success':False, 'info':"no simulation is named " + simu_name}
-    if (running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + "is terminated"}
+    global_running_sim[simu_name]['process'].poll()
+    if (global_running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
     else:
-        running_sim[simu_name]['process'].send_signal(signal.SIGSTOP)
-        return {'success':True, 'info':"simulation " + simu_name + "is paused"}
-
+        status = send_via_socket(simu_name, 'SUSPEND')
+        return {'success':True, 'status':status}
 
 ############################################################################
-### /pause?name=test.yaml
+### /process_resume?name=test.yaml
+@route('/process_resume', method=['OPTIONS', 'GET'])
+@enable_cors
+def process_resume():
+    """
+    """
+    simu_name = request.params.name
+    if not global_running_sim.has_key(simu_name):
+        return {'success':False, 'info':"no simulation is named " + simu_name}
+    global_running_sim[simu_name]['process'].poll()
+    if (global_running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
+    else:
+        global_running_sim[simu_name]['process'].send_signal(signal.SIGCONT)
+        return {'success':True, 'info':"simulation " + simu_name + " is resumed"}
+
+############################################################################
+### /resume?name=test.yaml
 @route('/resume', method=['OPTIONS', 'GET'])
 @enable_cors
 def resume():
     """
     """
     simu_name = request.params.name
-    if not running_sim.has_key(simu_name):
+    if not global_running_sim.has_key(simu_name):
         return {'success':False, 'info':"no simulation is named " + simu_name}
-    if (running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + "is terminated"}
+    global_running_sim[simu_name]['process'].poll()
+    if (global_running_sim[simu_name]['process'].returncode != None):
+        return {'success':False, 'info':"simulation " + simu_name + "is finished"}
     else:
-        running_sim[simu_name]['process'].send_signal(signal.SIGCONT)
-        return {'success':True, 'info':"simulation " + simu_name + "is resumed"}
+        status = send_via_socket(simu_name, 'RESUME')
+        return {'success':True, 'status':status}
 
 ############################################################################
-### /pause?name=test.yaml
+### /kill?name=test.yaml
 @route('/kill', method=['OPTIONS', 'GET'])
 @enable_cors
 def kill():
     """
     """
     simu_name = request.params.name
-    if not running_sim.has_key(simu_name):
+    if not global_running_sim.has_key(simu_name):
         return {'success':False, 'info':"no simulation is named " + simu_name}
-    if (running_sim[simu_name]['process'].returncode != None):
-        return {'success':True, 'info':"simulation " + simu_name + "is terminated"}
+    global_running_sim[simu_name]['process'].poll()
+    if (global_running_sim[simu_name]['process'].returncode != None):
+        return {'success':True, 'info':"simulation " + simu_name + " is finished"}
     else:
-        running_sim[simu_name]['process'].send_signal(signal.SIGKILL)
-        return {'success':True, 'info':"simulation " + simu_name + "is killed"}
+        fout=open(global_running_sim[simu_name]['output_name'], 'r')
+        fout.close()
+        global_running_sim[simu_name]['process'].send_signal(signal.SIGKILL)
+        return {'success':True, 'info':"simulation " + simu_name + " is killed"}
 
 ############################################################################
 ### /pause?name=result.dat
