@@ -1,0 +1,276 @@
+!!python/object/new:Mixins.Savable.PickledCollection
+listitems:
+- &id007
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id003 !!python/object:Container.CodeBlock
+      args: {outvalue: 2, period: 5}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 2
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'Example_2'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Interaction/Example.py
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [225.0, 325.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [273.0, 373.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - &id001 !!python/object:Container.DiskGUI
+      args: {col: 0, comma: ' ', eventAxis: false, ext: .dat, fileName: '/home/celinekessler/devsimpy/version-2.9/result75'}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 3
+      image_path: ''
+      input: 4
+      input_direction: ouest
+      label: !!python/unicode 'To_Disk_3'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Collector/To_Disk.py
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [448.0, 548.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [158.0, 258.0]
+    - 3
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [325.0, 448.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [323.0, 238.0]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id004 !!python/object:Container.CodeBlock
+      args: {outvalue: 2, period: 5}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 1
+      image_path: ''
+      input: 1
+      input_direction: ouest
+      label: !!python/unicode 'Example_1'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 1
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Interaction/Example.py
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [216.0, 316.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [41.0, 141.0]
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id001
+    - 2
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [316.0, 448.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [91.0, 218.0]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - &id002 !!python/object:Container.CodeBlock
+      args: {streamInName: '/home/celinekessler/user.in'}
+      attributes: [label, label_pos, pen, fill, font, image_path, input, output]
+      bad_filename_path_flag: false
+      devsModel: null
+      dir: [ouest, nord, est, sud]
+      fill: ['#add8e6']
+      font: [12, 74, 93, 92, !!python/unicode 'Arial']
+      h: 100.0
+      id: 0
+      image_path: ''
+      input: 0
+      input_direction: ouest
+      label: !!python/unicode 'User_0'
+      label_pos: center
+      last_name_saved: ''
+      lock_flag: false
+      model_path: ''
+      nb_copy: 0
+      output: 2
+      output_direction: est
+      pen: ['#add8e6', 1, 100]
+      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Interaction/User.py
+      selected: false
+      w: 100.0
+      x: !!python/object/apply:array.array
+      - d
+      - [52.0, 152.0]
+      y: !!python/object/apply:array.array
+      - d
+      - [170.0, 270.0]
+    - 1
+    lock_flag: false
+    output: !!python/tuple
+    - *id001
+    - 1
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [152.0, 448.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [236.66666666666669, 198.0]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id002
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id001
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [152.0, 448.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [203.33333333333334, 178.0]
+  - *id001
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id002
+    - 1
+    lock_flag: false
+    output: !!python/tuple
+    - *id003
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [152.0, 225.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [236.66666666666669, 323.0]
+  - !!python/object:Container.ConnectionShape
+    args: {}
+    devsModel: null
+    fill: ['#d91e1e']
+    font: [12, 74, 93, 92, !!python/unicode 'Arial']
+    input: !!python/tuple
+    - *id002
+    - 0
+    lock_flag: false
+    output: !!python/tuple
+    - *id004
+    - 0
+    pen: ['#add8e6', 1, 100]
+    python_path: ''
+    touch_list: []
+    x: !!python/object/apply:array.array
+    - d
+    - [152.0, 216.0]
+    y: !!python/object/apply:array.array
+    - d
+    - [203.33333333333334, 91.0]
+  - *id003
+  - *id004
+  - *id002
+- &id006 []
+- &id005 {}
+state:
+  obj: !!python/object:Container.Diagram
+    constants_dico: *id005
+    deletedCodeBlockId: []
+    deletedContainerBlockId: []
+    deletediPortId: []
+    deletedoPortId: []
+    devsModel: null
+    last_name_saved: !!python/unicode 'C:\Users\ASUS\Documents\GitHub\DEVSimPy\version-2.9\testInteraction.yaml'
+    modify: false
+    nbCodeBlock: 4
+    nbContainerBlock: 0
+    nbiPort: 0
+    nboPort: 0
+    parent: null
+    priority_list: *id006
+    shapes: *id007
+  pickled_obj:
+  - *id007
+  - *id006
+  - *id005
