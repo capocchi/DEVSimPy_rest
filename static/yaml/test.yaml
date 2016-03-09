@@ -8,7 +8,7 @@ listitems:
     font: [12, 74, 93, 92, !!python/unicode 'Arial']
     input: !!python/tuple
     - &id002 !!python/object:Container.CodeBlock
-      args: {maxStep: 1, maxValue: 100, minStep: 1, minValue: 0, start: 0}
+      args: {maxStep: 1, maxValue: 10, minStep: 1, minValue: 0}
       attributes: [label, label_pos, pen, fill, font, image_path, input, output]
       bad_filename_path_flag: false
       devsModel: null
@@ -29,7 +29,7 @@ listitems:
       output: 1
       output_direction: est
       pen: ['#add8e6', 1, 100]
-      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Generator/RandomGenerator.py
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Generator\RandomGenerator.py'
       selected: false
       w: 100.0
       x: !!python/object/apply:array.array
@@ -42,7 +42,7 @@ listitems:
     lock_flag: false
     output: !!python/tuple
     - &id001 !!python/object:Container.DiskGUI
-      args: {col: 0, comma: ' ', eventAxis: false, ext: .dat, fileName: /home/celinekessler/devsimpy/version-2.9/result47}
+      args: {col: 0, comma: ' ', eventAxis: false, ext: .dat, fileName: 'D:\Recherche\DEVSimPy\trunk\version-2.9\result47'}
       attributes: [label, label_pos, pen, fill, font, image_path, input, output]
       bad_filename_path_flag: false
       devsModel: null
@@ -63,7 +63,7 @@ listitems:
       output: 1
       output_direction: est
       pen: ['#add8e6', 1, 100]
-      python_path: /home/celinekessler/devsimpy/version-2.9/Domain/Collector/To_Disk.py
+      python_path: !!python/unicode 'D:\Dropbox\Dropbox\devsimpy\Domain\Collector\To_Disk.py'
       selected: false
       w: 100.0
       x: !!python/object/apply:array.array
@@ -94,7 +94,7 @@ state:
     deletediPortId: []
     deletedoPortId: []
     devsModel: null
-    last_name_saved: /home/celinekessler/mysite/static/yaml/test.yaml
+    last_name_saved: !!python/unicode 'C:\Users\capocchi_l.UDCPP\Desktop\test.yaml'
     modify: false
     nbCodeBlock: 2
     nbContainerBlock: 0
