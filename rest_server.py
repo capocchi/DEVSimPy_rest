@@ -99,9 +99,10 @@ def send_via_socket(simu_name, data):
     """
     try:
         socket_id = global_running_sim[simu_name]['socket_id']
-        socket_address = '\0' + socket_id
-        comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        comm_socket.connect(socket_address)
+        #socket_address = '\0' + socket_id
+        #comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        #comm_socket.connect(socket_address)
+        comm_socket.connect(('localhost', 5555))
         comm_socket.sendall(data)
         status = comm_socket.recv(1024)
         comm_socket.close()
