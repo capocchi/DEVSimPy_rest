@@ -106,24 +106,6 @@ def getJointJs(d):
     ### return list of tuples of connected models
     return str(group(map(lambda b: b.split(' ')[-1], filter(lambda a: 'label' in a, docs)),2))
 
-def send_via_socket(simu_name, data):
-    """ send data string to the simulation identified by simu_name
-    """
-    try:
-        #socket_id = global_running_sim[simu_name]['socket_id']
-        #socket_address = '\0' + socket_id
-        #comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        #comm_socket.connect(socket_address)
-        comm_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        comm_socket.connect(('localhost', 5555))
-        comm_socket.sendall(data)
-        status = comm_socket.recv(1024)
-        comm_socket.close()
-    except:
-        comm_socket.close()
-        raise
-
-    return status
 
 ############################################################################
 #
@@ -184,7 +166,8 @@ def models_list():
         with filename, date and size
     """
     data = getYAMLFilenames()
-    return { "success": data!={} and data!=[], "models": data }
+
+    return jsom.loads(data)
 
 #   Model representation
 ############################################################################
@@ -262,6 +245,77 @@ def save_yaml(model_filename, block_label):
 ############################################################################
 #    RESOURCE = SIMULATION
 ############################################################################
+#    Useful methods
+############################################################################
+def update_status (simu_name):
+    """
+        Test if the simulation exists and
+        if it does, tests if it is still alive
+        possible statuses : RUNNING / PAUSED / FINISHED / UNKNOWN
+    """
+    if not global_running_sim.has_key(simu_name):
+        return "UNKNOWN " + simu_name
+
+    if 'FINISHED' not in global_running_sim[simu_name]['data']['status']:
+        global_running_sim[simu_name]['process'].poll()
+        returncode = global_running_sim[simu_name]['process'].returncode
+        if (returncode != None):
+            global_running_sim[simu_name]['data']['status'] = "FINISHED with exit code " + str(returncode)
+
+    return global_running_sim[simu_name]['data']['status']
+
+def pause_or_resume (simu_name, action):
+    """
+    """
+    current_status = update_status (simu_name)
+
+    if current_status in ("RUNNING", "PAUSED"):
+        CONVERT = {
+            'PAUSE'  : {'expected_thread_status' : 'PAUSED',  'sim_status': "PAUSED"},
+            'RESUME' : {'expected_thread_status' : 'RESUMED', 'sim_status': "RUNNING"}}
+
+        thread_status = send_via_socket(simu_name, action)
+        if thread_status == CONVERT[action]['expected_thread_status']:
+            global_running_sim[simu_name]['data']['status'] = CONVERT[action]['sim_status']
+            return {'success':True, 'status': thread_status}
+        else:
+            return {'success':False, 'info': thread_status, 'expected':CONVERT[action]['expected_thread_status']}
+    else:
+        return {'success':False, 'info': current_status}
+
+def send_via_socket(simu_name, data):
+    """ send data string to the simulation identified by simu_name
+    """
+    try:
+        socket_address = '\0' + global_running_sim[simu_name]['data']['username'] + '.' + simu_name
+        comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        #socket_address = ('localhost', 5555)
+        #comm_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        comm_socket.connect(socket_address)
+        comm_socket.sendall(data)
+        status = comm_socket.recv(1024)
+        comm_socket.close()
+    except:
+        status = 'SOCKET ERROR'
+        comm_socket.close()
+
+    return status
+
+#    Simulation collection
+############################################################################
+
+@route('/simulations', method=['GET'])
+@enable_cors
+def simulations_list():
+    """
+    """
+    sim_list = {}
+    for simu_name in global_running_sim :
+        update_status (simu_name)
+        sim_list[simu_name] = global_running_sim[simu_name]['data']
+
+    return sim_list
+
 #    Simulation creation
 #    body example :  {"model_filename":"test.yaml", "simulated_duration":"50"}
 ############################################################################
@@ -305,19 +359,35 @@ def simulate():
 
     cmd = ['python2.7', devsimpy_nogui, abs_model_filename, str(sim_duration), socket_id]
     fout = open(simu_name+'.out', 'w+') # where simulation execution report will be written
-    process = subprocess.Popen(cmd, stdout=fout, stderr=subprocess.STDOUT, close_fds=True)
-
+    flog = open(simu_name+'.log', 'w+') # where simulation execution report will be written
+    process = subprocess.Popen(cmd, stdout=fout, stderr=flog, close_fds=True)
     # Call to Popen is non-blocking, BUT, the child process inherits the file descriptors from the parent,
     # and that will include the web app connection to the WSGI server,
     # so the process needs to run and finish before the connection is released and the server notices that the request is finished.
     # This is solved by passing close_fds=True to Popen
-    global_running_sim[simu_name] = {'process':process, 'output_name':simu_name+'.out', 'socket_id':socket_id, "is_paused":False}
-    # TODO could be stored in a DB except for the process : stored in session variable or as a scheduled task (cf PythonAnywhere rules)
 
-    return {'success': True, 'simulation_name':simu_name, 'model':model_filename, 'simulated_duration':sim_duration}
+    # Check for an exception at initialization
+    time.sleep(0.5)
+    update_status(simu_name)
 
-#    Simulation pause :
-#    suspends the simulation thread but not the wrapping process
+    # Store all data and process for this simulation
+    global_running_sim[simu_name] = {
+        'data' : {
+            'model_filename'    : model_filename,
+            'simulated_duration': sim_duration,
+            'username'          : "celinebateaukessler",#TODO
+            'creation_date'     : datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S"),
+            'output_filename'   : simu_name+'.out',
+            'log_filename'      : simu_name+'.log',
+            'status'            : "RUNNING"},
+        'process': process }
+
+    # TODO data could be stored in a DB
+
+    return {'success': True, simu_name : global_running_sim[simu_name]['data']}
+
+#    Simulation pause / resume :
+#    suspends / resumes the simulation thread but not the wrapping process
 #    (to be called before parameters modification)
 ############################################################################
 
@@ -326,39 +396,15 @@ def simulate():
 def pause(simu_name):
     """
     """
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
-    global_running_sim[simu_name]['process'].poll()
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
-    else:
-        status = send_via_socket(simu_name, 'SUSPEND')
-        if status == 'SUSPENDED':
-            global_running_sim[simu_name]['is_paused'] = True
-        return {'success':True, 'status':status}
+    return pause_or_resume (simu_name, 'PAUSE')
 
-#    Simulation resume :
-#    resumes the simulation inside the wrapping process
-#    (to be called after parameters modification)
-############################################################################
 
 @route('/simulations/<simu_name>/resume', method=['PUT'])
 @enable_cors
 def resume(simu_name):
     """
     """
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
-
-    global_running_sim[simu_name]['process'].poll()
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + "is finished"}
-
-    else:
-        status = send_via_socket(simu_name, 'RESUME')
-        if status == 'RESUMED':
-            global_running_sim[simu_name]['is_paused'] = False
-        return {'success':True, 'status':status}
+    return pause_or_resume (simu_name, 'RESUME')
 
 #   Simulation kill
 ############################################################################
@@ -367,16 +413,15 @@ def resume(simu_name):
 def kill(simu_name):
     """
     """
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
+    status = update_status(simu_name)
 
-    global_running_sim[simu_name]['process'].poll()
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':True, 'info':"simulation " + simu_name + " is finished"}
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if 'FINISHED' in status:
+        return {'success':True, 'info':status}
 
-    else:
-        global_running_sim[simu_name]['process'].send_signal(signal.SIGKILL)
-        return {'success':True, 'info':"simulation " + simu_name + " is killed"}
+    global_running_sim[simu_name]['process'].send_signal(signal.SIGKILL)
+    return {'success':True, 'info':"KILLED"}
 
 ###    Simulation process pause (TBC)
 ############################################################################
@@ -386,14 +431,17 @@ def kill(simu_name):
 def process_pause(simu_name):
     """
     """
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
-    global_running_sim[simu_name]['process'].poll()
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
-    else:
-        global_running_sim[simu_name]['process'].send_signal(signal.SIGSTOP)
-        return {'success':True, 'info':"simulation " + simu_name + " is paused"}
+    status = update_status(simu_name)
+
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if 'FINISHED' in status:
+        return {'success':False, 'info':status}
+
+    global_running_sim[simu_name]['process'].send_signal(signal.SIGSTOP)
+    global_running_sim[simu_name]['data']['status'] = "PROCESS_PAUSE"
+    return {'success':True, 'info':"PROCESS_PAUSED"}
+
 
 ###    Simulation process resume (TBC)
 ############################################################################
@@ -403,16 +451,17 @@ def process_pause(simu_name):
 def process_resume(simu_name):
     """
     """
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
+    status = update_status(simu_name)
 
-    global_running_sim[simu_name]['process'].poll()
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + " is finished"}
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if 'FINISHED' in status:
+        return {'success':False, 'info':status}
 
-    else:
-        global_running_sim[simu_name]['process'].send_signal(signal.SIGCONT)
-        return {'success':True, 'info':"simulation " + simu_name + " is resumed"}
+    global_running_sim[simu_name]['process'].send_signal(signal.SIGCONT)
+    global_running_sim[simu_name]['data']['status'] = "RUNNING"
+    return {'success':True, 'info':"PROCESS_RESUMED"}
+
 
 ############################################################################
 #    RESOURCE = SIMULATION PARAMETERS
@@ -427,18 +476,14 @@ def process_resume(simu_name):
 def modify(simu_name, block_label):
     """
     """
+    status = update_status(simu_name)
+
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if status != "PAUSED":
+        return {'success':False, 'info':status}
+
     data = request.json
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation in progress is named " + simu_name}
-
-    global_running_sim[simu_name]['process'].poll()
-
-    if (global_running_sim[simu_name]['process'].returncode != None):
-        return {'success':False, 'info':"simulation " + simu_name + " is not in progress"}
-
-    if not global_running_sim[simu_name]['is_paused']:
-        return {'success':False, 'info':"simulation " + simu_name + " is not paused"}
-
     global_data = {'block_label': block_label, 'block' : data}
     status = send_via_socket(simu_name, json.dumps(global_data))
     return {'success': True, 'status':status}
@@ -449,33 +494,41 @@ def modify(simu_name, block_label):
 ############################################################################
 #   Simulation report : includes results collection
 ############################################################################
+
 @route('/simulations/<simu_name>/results', method=['GET'])
 @enable_cors
-def result(simu_name):
+def simulation_results(simu_name):
 
-    if not global_running_sim.has_key(simu_name):
-        return {'success':False, 'info':"no simulation is named " + simu_name}
-    else:
-        global_running_sim[simu_name]['process'].poll()
-        if (global_running_sim[simu_name]['process'].returncode == None):
-            return {'success':True, 'info':"simulation " + simu_name + " is running"}
-        else:
-            fout=open(global_running_sim[simu_name]['output_name'], 'r')
-            output = ""
-            for line in fout:
-                output = output + line
-            fout.close()
+    status = update_status(simu_name)
 
-            return {'success':True, 'report':output}
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if 'FINISHED' not in status:
+        return {'success':False, 'info':status}
+
+    fout=open(global_running_sim[simu_name]['data']['output_filename'], 'r')
+    output = ""
+    for line in fout:
+        output = output + line
+    fout.close()
+
+    return {'success':True, 'results':output}
 
 
-#   Simulation result
+#   Simulation result as a (time, value) table
 ############################################################################
 @route('/simulations/<simu_name>/results/<result_filename>', method=['GET'])
 @enable_cors
-def plot(simu_name, result_filename):
+def simulation_time_value_result(simu_name, result_filename):
     """
     """
+    status = update_status(simu_name)
+
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+    if 'FINISHED' not in status:
+        return {'success':False, 'info':status}
+
     # Build the diagram data as :
     # - 1 list of labels (X or Time axis) called category TBC : what if time delta are not constant???
     # - 1 list of values (Y or Amplitude axis) called data
@@ -487,6 +540,25 @@ def plot(simu_name, result_filename):
             result.append({"time":t, "value":v.rstrip('\r\n')})
 
     return json.dumps(result)
+
+#   Simulation logs
+############################################################################
+@route('/simulations/<simu_name>/logs', method=['GET'])
+@enable_cors
+def simulation_logs(simu_name):
+
+    status = update_status(simu_name)
+
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+
+    flog=open(global_running_sim[simu_name]['data']['log_filename'], 'r')
+    output = ""
+    for line in flog:
+        output = output + line
+    flog.close()
+
+    return {'success':True, 'logs':output}
 
 
 ############################################################################
