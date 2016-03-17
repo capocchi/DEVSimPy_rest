@@ -14,10 +14,10 @@ import __builtin__
 
 __builtin__.__dict__['DEVS_DIR_PATH_DICT'] = {}
 
-from param import *
+from param import * 
 
 ### global variables
-global_running_sim = {}
+global_running_sim = {} 
 global_simu_id = 0
 
 # the decorator
@@ -47,14 +47,6 @@ def getYAMLFile(name):
 
     return dict([(name, open(os.path.join(yaml_path_dir, name), 'r').read())])\
     if name in filenames else {}
-
-
-def getYAMLFiles():
-    """ Get all yamls files in yaml_path_dir
-    """
-    return dict([(entry, open(os.path.join(yaml_path_dir, entry), 'r').read())\
-                for entry in os.listdir(yaml_path_dir)\
-                if entry.endswith('.yaml')])
 
 
 def getYAMLFilenames():
@@ -165,9 +157,54 @@ def models_list():
     """ Return the list of the models available on the server
         with filename, date and size
     """
-    data = getYAMLFilenames()
+    list = getYAMLFilenames()
 
-    return jsom.loads(data)
+    return list
+
+#   Model creation
+############################################################################
+@route('/models', method=['POST'])
+@enable_cors
+def create_model():
+    
+    upload    = request.files.get('upload')
+    name, ext = os.path.splitext(upload.filename)
+    if ext != '.yaml':
+        return {'success' : False, 'info': 'Only .yaml file allowed.'}
+    
+    upload.save(yaml_path_dir, overwrite=False) # appends upload.filename automatically
+    #os.chmod(os.path.join(yaml_path_dir, (name + ext)), stat.S_IWGRP)
+    # TODO add a check on the yaml file
+    return {'success' : True, 'model_name':name}
+
+    
+#   Model update
+############################################################################
+@route('/models/<model_name>', method=['POST'])
+@enable_cors
+def update_model(model_name):
+    
+    upload    = request.files.get('upload')
+    name, ext = os.path.splitext(upload.filename)
+    if ext != '.yaml':
+        return {'success' : False, 'info': 'Only .yaml file allowed.'}
+    #if name != model_name: # TODO change when using DB and id instead of filename
+    #    return {'success' : False, 'info': 'Unexpected filename.'}
+
+    upload.save(yaml_path_dir, overwrite=True) # appends upload.filename automatically
+    # TODO add a check on the yaml file
+    return {'success' : True, 'model_name':name}
+
+#   Model deletion
+############################################################################
+@route('/models/<model_name>', method=['DELETE'])
+@enable_cors
+def model_delete(model_name):
+
+    model_abs_filename = os.path.join(yaml_path_dir, model_name)
+    os.remove(model_abs_filename)
+    
+    return {'success' : True}
 
 #   Model representation
 ############################################################################
@@ -180,19 +217,55 @@ def model_representation(model_filename):
     """
     if request.headers['Accept'] == 'application/json':
         data = getModelAsJSON(model_filename)
+        return { "success": data!={} and data!=[], "model": data}#json.loads(data) }
     elif request.headers['Accept'] == 'text/x-yaml':
         data = getYAMLFile(model_filename)
+        return { "success": data!={} and data!=[], "model": data }
     else:
         return {"success":False, "info":"unexpected Accept type = " + request.headers['Accept']}
 
-    return { "success": data!={} and data!=[], "model": data }
-
+    
 ############################################################################
 #    RESOURCE = ATOMIC MODEL = BLOCK
 ############################################################################
-#   Blocks collection
+#   Blocks collection : no need for a global list of available blocks yet
 ############################################################################
 
+#   Block creation
+############################################################################
+@route('/blocks', method=['POST'])
+@enable_cors
+def create_block():
+    upload    = request.files.get('upload')
+    name, ext = os.path.splitext(upload.filename)
+    if ext not in ('.amd', '.py'):
+        return {'success' : False, 'info': 'Only .amd and .py files allowed.'}
+    
+    upload.save(block_path_dir, overwrite=False) # appends upload.filename automatically
+    # TODO add a check on file validity
+    return {'success' : True, 'block_name':name}
+
+    
+#   Block update
+############################################################################
+@route('/blocks/<block_name>', method=['POST'])
+@enable_cors
+def update_model(block_name):
+
+    upload    = request.files.get('upload')
+    name, ext = os.path.splitext(upload.filename)
+    if ext not in ('.amd', '.py'):
+        return {'success' : False, 'info': 'Only .amd and .py files allowed.'}
+    #if name != block_name: # TODO change when using DB and id instead of filename
+    #    return {'success' : False, 'info': 'Unexpected filename.'}
+
+    upload.save(block_path_dir, overwrite=True) # appends upload.filename automatically
+    # TODO add a check on file validity
+    return {'success' : True, 'block_name':name}
+
+
+#   Blocks collection within a model
+############################################################################
 @route('/models/<model_filename>/blocks', method=['GET'])
 @enable_cors
 def model_blocks_list(model_filename):
@@ -202,12 +275,12 @@ def model_blocks_list(model_filename):
     cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_filename), "-blockslist"]
     output = subprocess.check_output(cmd)
 
-    return {'success':True, 'blocks':output}#eval(output.rstrip('\r\n'))}# output is JSON, rstrip('\r\n') makes it easier to read by human
+    return {'success':True, 'blocks':json.loads(output)}
 
-#   Block representation (useful part = parameters)
+
+#   Block parameters (for a given model)
 ############################################################################
-
-@route('/models/<model_filename>/blocks/<block_label>', method=['GET'])
+@route('/models/<model_filename>/blocks/<block_label>/params', method=['GET'])
 @enable_cors
 def model_block_parameters(model_filename, block_label):
     """ get the parameters of the block
@@ -215,37 +288,34 @@ def model_block_parameters(model_filename, block_label):
     # get the models names (blocking operation)
     cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_filename), "-getblockargs", block_label]
     output = subprocess.check_output(cmd)
-    # output is JSON, rstrip('\r\n') makes it easier to read by human
 
-    return {'success':True, 'block':eval(output.rstrip('\r\n'))}
+    return {'success':True, 'block':json.loads(output)}
 
-#   Block update
+
+#   Block parameters update (for a given model)
 #   body example : {"maxStep":1, "maxValue":100, "minStep":1, "minValue":0, "start":0}
 ############################################################################
-
-@route('/models/<model_filename>/blocks/<block_label>', method=['PUT'])
+@route('/models/<model_filename>/blocks/<block_label>/params', method=['PUT'])
 @enable_cors
 def save_yaml(model_filename, block_label):
     """ Update yaml file from devsimpy-mob
     """
     # update filename to absolute path
     model_abs_filename = os.path.join(yaml_path_dir, model_filename)
-    # Get the expected input string from JSON request body
+    # Get the new parameters as from JSON from request body
     data = request.json
-    dataS1 = json.dumps(data)
-    dataS2 = str(dataS1.replace("\"","'"))
-
+        
     # perform update (blocking operation)
-    cmd = ["python2.7", devsimpy_nogui, model_abs_filename, "-setblockargs", block_label, dataS2]
+    cmd = ["python2.7", devsimpy_nogui, model_abs_filename, "-setblockargs", block_label, json.dumps(data)]
     output = subprocess.check_output(cmd)
-
-    return {'success':True, 'new_block':eval(output.rstrip('\r\n'))}
+    #return {'output' : output}
+    return {'success':True, 'block':json.loads(output)}
 
 
 ############################################################################
 #    RESOURCE = SIMULATION
 ############################################################################
-#    Useful methods
+#    Common services
 ############################################################################
 def update_status (simu_name):
     """
@@ -257,10 +327,23 @@ def update_status (simu_name):
         return "UNKNOWN " + simu_name
 
     if 'FINISHED' not in global_running_sim[simu_name]['data']['status']:
+        # check on process status
         global_running_sim[simu_name]['process'].poll()
         returncode = global_running_sim[simu_name]['process'].returncode
+        # test if process is finished = (returnCode != None)
         if (returncode != None):
+            
             global_running_sim[simu_name]['data']['status'] = "FINISHED with exit code " + str(returncode)
+            with open(global_running_sim[simu_name]['data']['output_filename'], 'r') as fout:
+                report = fout.read()
+                json_report = json.loads(report)
+                del json_report['log']
+                global_running_sim[simu_name]['data']['report'] = json_report
+                #del global_running_sim[simu_name]['data']['output_filename']
+            with open(global_running_sim[simu_name]['data']['log_filename'], 'r') as flog:
+                global_running_sim[simu_name]['data']['log'] = flog.read()   
+                #del global_running_sim[simu_name]['data']['log_filename']                 
+                
 
     return global_running_sim[simu_name]['data']['status']
 
@@ -301,9 +384,9 @@ def send_via_socket(simu_name, data):
 
     return status
 
-#    Simulation collection
-############################################################################
 
+#    Simulations collection
+############################################################################
 @route('/simulations', method=['GET'])
 @enable_cors
 def simulations_list():
@@ -316,10 +399,10 @@ def simulations_list():
 
     return sim_list
 
+
 #    Simulation creation
 #    body example :  {"model_filename":"test.yaml", "simulated_duration":"50"}
 ############################################################################
-
 @route('/simulations', method=['POST'])
 @enable_cors
 def simulate():
@@ -329,8 +412,7 @@ def simulate():
     data = request.json
     ### Check that the given model name is valid
     model_filename     = data['model_filename']
-    path               = dsp_path_dir if model_filename.endswith('.dsp') else yaml_path_dir
-    abs_model_filename = os.path.join(path, model_filename)
+    abs_model_filename = os.path.join(yaml_path_dir, model_filename)
     if not os.path.exists(abs_model_filename):
         return {'success':False, 'info': "file does not exist! "+ abs_model_filename}
 
@@ -338,12 +420,13 @@ def simulate():
     sim_duration = data['simulated_duration']
     if sim_duration in ('ntl', 'inf'):
         sim_duration = "10000000"
-    if not sim_duration.isdigit():
+    if not str(sim_duration).isdigit():
         return {'success':False, 'info': "time must be digit!"}
 
     ### Delete old result files .dat
-    for name in filter(lambda fn: fn.endswith('.dat') and fn.split('_')[0] == os.path.splitext(model_filename)[0], os.listdir(path)):
-        os.remove(os.path.join(path, name))
+    ### Wrong test TODO
+    for result_filename in filter(lambda fn: fn.endswith('.dat') and fn.startswith(os.path.splitext(model_filename)[0]), os.listdir(yaml_path_dir)):
+        os.remove(os.path.join(yaml_path_dir, result_filename))
 
     ### Create simulation name - TODO store in DB
     model_name     = model_filename.split('.')[0]
@@ -366,10 +449,6 @@ def simulate():
     # so the process needs to run and finish before the connection is released and the server notices that the request is finished.
     # This is solved by passing close_fds=True to Popen
 
-    # Check for an exception at initialization
-    time.sleep(0.5)
-    update_status(simu_name)
-
     # Store all data and process for this simulation
     global_running_sim[simu_name] = {
         'data' : {
@@ -379,12 +458,27 @@ def simulate():
             'creation_date'     : datetime.strftime(datetime.today(), "%Y-%m-%d %H:%M:%S"),
             'output_filename'   : simu_name+'.out',
             'log_filename'      : simu_name+'.log',
-            'status'            : "RUNNING"},
+            'status'            : 'RUNNING'},
         'process': process }
 
     # TODO data could be stored in a DB
 
-    return {'success': True, simu_name : global_running_sim[simu_name]['data']}
+    return {'success': True, 'simulation' : {'simulation_name' : simu_name, 'simulation_data' : global_running_sim[simu_name]['data']}}
+
+
+#   Simulation representation
+############################################################################
+@route('/simulations/<simu_name>', method=['GET'])
+@enable_cors
+def simulation_report(simu_name):
+
+    status = update_status(simu_name)
+
+    if 'UNKNOWN' in status:
+        return {'success':False, 'info':status}
+
+    return {'simulation_name': simu_name, 'info': global_running_sim[simu_name]['data']}
+
 
 #    Simulation pause / resume :
 #    suspends / resumes the simulation thread but not the wrapping process
@@ -464,14 +558,14 @@ def process_resume(simu_name):
 
 
 ############################################################################
-#    RESOURCE = SIMULATION PARAMETERS
+#    RESOURCE = SIMULATION --> PARAMETERS
 ############################################################################
 #    Update parameters of 1 block
 #    body example :
 ### example POST body : {"modelID":"A2", "paramName":"maxValue", "paramValue":"50"}
 ############################################################################
 
-@route('/simulations/<simu_name>/blocks/<block_label>', method=['PUT'])
+@route('/simulations/<simu_name>/blocks/<block_label>/params', method=['PUT'])
 @enable_cors
 def modify(simu_name, block_label):
     """
@@ -506,13 +600,7 @@ def simulation_results(simu_name):
     if 'FINISHED' not in status:
         return {'success':False, 'info':status}
 
-    fout=open(global_running_sim[simu_name]['data']['output_filename'], 'r')
-    output = ""
-    for line in fout:
-        output = output + line
-    fout.close()
-
-    return {'success':True, 'results':output}
+    return {'success':True, 'results':global_running_sim[simu_name]['data']['report']}
 
 
 #   Simulation result as a (time, value) table
@@ -543,7 +631,7 @@ def simulation_time_value_result(simu_name, result_filename):
 
 #   Simulation logs
 ############################################################################
-@route('/simulations/<simu_name>/logs', method=['GET'])
+@route('/simulations/<simu_name>/log', method=['GET'])
 @enable_cors
 def simulation_logs(simu_name):
 
@@ -552,13 +640,7 @@ def simulation_logs(simu_name):
     if 'UNKNOWN' in status:
         return {'success':False, 'info':status}
 
-    flog=open(global_running_sim[simu_name]['data']['log_filename'], 'r')
-    output = ""
-    for line in flog:
-        output = output + line
-    flog.close()
-
-    return {'success':True, 'logs':output}
+    return {'success':True, 'log':global_running_sim[simu_name]['data']['log']}
 
 
 ############################################################################
