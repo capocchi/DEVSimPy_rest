@@ -9,6 +9,7 @@ import socket
 from datetime import datetime
 
 import __builtin__
+from compiler.pyassem import Block
 
 #import BaseDEVS, DomainBehavior, DomainStructure
 
@@ -19,6 +20,8 @@ from param import *
 ### global variables
 global_running_sim = {} 
 global_simu_id = 0
+
+BLOCK_FILE_EXTENSIONS = ['.amd', '.cmd', '.py']
 
 # the decorator
 def enable_cors(fn):
@@ -52,9 +55,16 @@ def getYAMLFile(name):
 def getYAMLFilenames():
     """ Get all yamls file names in yaml_path_dir
     """
-    return dict([(entry, {'last modified':str(time.ctime(os.path.getmtime(os.path.join(yaml_path_dir, entry)))), 'size':str(os.path.getsize(os.path.join(yaml_path_dir, entry))*0.001)+' ko'})\
-                for entry in os.listdir(yaml_path_dir)\
-                if entry.endswith('.yaml')])
+    model_list = {}
+    for entry in os.listdir(yaml_path_dir):
+        
+        if entry.endswith('.yaml'):
+            model_name = entry.split('.')[0]
+            filename = os.path.join(yaml_path_dir, entry)
+            model_list[model_name] = {'filename'     : filename,
+                                      'last modified': str(time.ctime(os.path.getmtime(filename))), 
+                                      'size'         : str(os.path.getsize(filename)*0.001)+' ko'}
+    return model_list
 
 
 def getModelAsJSON(model_filename):
@@ -169,13 +179,20 @@ def create_model():
     
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
+    
     if ext != '.yaml':
         return {'success' : False, 'info': 'Only .yaml file allowed.'}
+    
+    if os.path.exists(os.path.join(yaml_path_dir, name+ext)):
+        return {'success' : False , 'info' : 'File already exists'}
     
     upload.save(yaml_path_dir, overwrite=False) # appends upload.filename automatically
     #os.chmod(os.path.join(yaml_path_dir, (name + ext)), stat.S_IWGRP)
     # TODO add a check on the yaml file
     return {'success' : True, 'model_name':name}
+    #except:
+    #    import traceback
+    #    return {'success' : False , 'info' : traceback.format_exc()}
 
     
 #   Model update
@@ -186,14 +203,15 @@ def update_model(model_name):
     
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
+    
     if ext != '.yaml':
         return {'success' : False, 'info': 'Only .yaml file allowed.'}
-    #if name != model_name: # TODO change when using DB and id instead of filename
-    #    return {'success' : False, 'info': 'Unexpected filename.'}
-
+    if name != model_name: 
+        return {'success' : False, 'info': 'Filename does not match model_name.'}
     upload.save(yaml_path_dir, overwrite=True) # appends upload.filename automatically
     # TODO add a check on the yaml file
     return {'success' : True, 'model_name':name}
+    
 
 #   Model deletion
 ############################################################################
@@ -201,26 +219,35 @@ def update_model(model_name):
 @enable_cors
 def model_delete(model_name):
 
-    model_abs_filename = os.path.join(yaml_path_dir, model_name)
-    os.remove(model_abs_filename)
+    model_abs_filename = os.path.join(yaml_path_dir, model_name+'.yaml')
+    
+    if os.path.exists(model_abs_filename):
+        os.remove(model_abs_filename)
     
     return {'success' : True}
+    
 
 #   Model representation
 ############################################################################
 
-@route('/models/<model_filename>', method=['GET'])
+@route('/models/<model_name>', method=['GET'])
 @enable_cors
-def model_representation(model_filename):
+def model_representation(model_name):
     """ Return the representation of the model
         according to requested content type
     """
+    model_filename = model_name + '.yaml'
     if request.headers['Accept'] == 'application/json':
         data = getModelAsJSON(model_filename)
-        return { "success": data!={} and data!=[], "model": data}#json.loads(data) }
+        return {"success"    : data!={} and data!=[],
+                "model_name" : model_name, 
+                "model"      : data} 
+                #"model"      : json.loads(data) }
     elif request.headers['Accept'] == 'text/x-yaml':
         data = getYAMLFile(model_filename)
-        return { "success": data!={} and data!=[], "model": data }
+        return {"success"    : data!={} and data!=[],
+                "model_name" :model_name, 
+                "model"      : data }
     else:
         return {"success":False, "info":"unexpected Accept type = " + request.headers['Accept']}
 
@@ -238,8 +265,12 @@ def model_representation(model_filename):
 def create_block():
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
-    if ext not in ('.amd', '.py'):
-        return {'success' : False, 'info': 'Only .amd and .py files allowed.'}
+    
+    if ext not in BLOCK_FILE_EXTENSIONS:
+        return {'success' : False, 'info': 'Only .amd, .cmd and .py files allowed.'}
+    
+    if os.path.exists(os.path.join(block_path_dir, name+ext)):
+        return {'success' : False , 'info' : 'File already exists'}
     
     upload.save(block_path_dir, overwrite=False) # appends upload.filename automatically
     # TODO add a check on file validity
@@ -254,25 +285,40 @@ def update_model(block_name):
 
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
-    if ext not in ('.amd', '.py'):
-        return {'success' : False, 'info': 'Only .amd and .py files allowed.'}
-    #if name != block_name: # TODO change when using DB and id instead of filename
-    #    return {'success' : False, 'info': 'Unexpected filename.'}
+    
+    if ext not in BLOCK_FILE_EXTENSIONS:
+        return {'success' : False, 'info': 'Only .amd, .cmd and .py files allowed.'}
+    if name != block_name: 
+        return {'success' : False, 'info': 'Filename does not match block_name.'}
 
     upload.save(block_path_dir, overwrite=True) # appends upload.filename automatically
     # TODO add a check on file validity
     return {'success' : True, 'block_name':name}
 
 
+#   Block deletion
+############################################################################
+@route('/blocks/<block_name>', method=['DELETE'])
+@enable_cors
+def delete_block(block_name):
+    block_abs_filename = os.path.join(block_path_dir, block_name)
+    
+    for ext in BLOCK_FILE_EXTENSIONS:
+        if os.path.exists(block_abs_filename + ext):
+            os.remove(block_abs_filename + ext)
+    
+    return {'success' : True}
+
+
 #   Blocks collection within a model
 ############################################################################
-@route('/models/<model_filename>/blocks', method=['GET'])
+@route('/models/<model_name>/blocks', method=['GET'])
 @enable_cors
-def model_blocks_list(model_filename):
+def model_blocks_list(model_name):
     """ get the model blocks list from yaml
     """
     # get the models names (blocking operation)
-    cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_filename), "-blockslist"]
+    cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_name + '.yaml'), "-blockslist"]
     output = subprocess.check_output(cmd)
 
     return {'success':True, 'blocks':json.loads(output)}
@@ -280,13 +326,13 @@ def model_blocks_list(model_filename):
 
 #   Block parameters (for a given model)
 ############################################################################
-@route('/models/<model_filename>/blocks/<block_label>/params', method=['GET'])
+@route('/models/<model_name>/blocks/<block_label>/params', method=['GET'])
 @enable_cors
-def model_block_parameters(model_filename, block_label):
+def model_block_parameters(model_name, block_label):
     """ get the parameters of the block
     """
     # get the models names (blocking operation)
-    cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_filename), "-getblockargs", block_label]
+    cmd = ["python2.7", devsimpy_nogui, os.path.join(yaml_path_dir, model_name + '.yaml'), "-getblockargs", block_label]
     output = subprocess.check_output(cmd)
 
     return {'success':True, 'block':json.loads(output)}
@@ -295,13 +341,13 @@ def model_block_parameters(model_filename, block_label):
 #   Block parameters update (for a given model)
 #   body example : {"maxStep":1, "maxValue":100, "minStep":1, "minValue":0, "start":0}
 ############################################################################
-@route('/models/<model_filename>/blocks/<block_label>/params', method=['PUT'])
+@route('/models/<model_name>/blocks/<block_label>/params', method=['PUT'])
 @enable_cors
-def save_yaml(model_filename, block_label):
+def save_yaml(model_name, block_label):
     """ Update yaml file from devsimpy-mob
     """
     # update filename to absolute path
-    model_abs_filename = os.path.join(yaml_path_dir, model_filename)
+    model_abs_filename = os.path.join(yaml_path_dir, model_name + '.yaml')
     # Get the new parameters as from JSON from request body
     data = request.json
         
@@ -336,13 +382,16 @@ def update_status (simu_name):
             global_running_sim[simu_name]['data']['status'] = "FINISHED with exit code " + str(returncode)
             with open(global_running_sim[simu_name]['data']['output_filename'], 'r') as fout:
                 report = fout.read()
-                json_report = json.loads(report)
-                del json_report['log']
-                global_running_sim[simu_name]['data']['report'] = json_report
+                try:
+                    json_report = json.loads(report)
+                    del json_report['log']
+                    global_running_sim[simu_name]['data']['report'] = json_report
+                except:
+                    global_running_sim[simu_name]['data']['report'] = report
                 #del global_running_sim[simu_name]['data']['output_filename']
             with open(global_running_sim[simu_name]['data']['log_filename'], 'r') as flog:
                 global_running_sim[simu_name]['data']['log'] = flog.read()   
-                #del global_running_sim[simu_name]['data']['log_filename']                 
+                #del global_running_sim[simu_name]['data']['log_filename']"""                 
                 
 
     return global_running_sim[simu_name]['data']['status']
@@ -357,13 +406,22 @@ def pause_or_resume (simu_name, action):
             'PAUSE'  : {'expected_thread_status' : 'PAUSED',  'sim_status': "PAUSED"},
             'RESUME' : {'expected_thread_status' : 'RESUMED', 'sim_status': "RUNNING"}}
 
-        thread_status = send_via_socket(simu_name, action)
-        if thread_status == CONVERT[action]['expected_thread_status']:
-            global_running_sim[simu_name]['data']['status'] = CONVERT[action]['sim_status']
-            return {'success':True, 'status': thread_status}
-        else:
-            return {'success':False, 'info': thread_status, 'expected':CONVERT[action]['expected_thread_status']}
-    else:
+        thread_response = send_via_socket(simu_name, action)
+        try:
+            thread_json_response = json.loads(thread_response)
+            thread_status = thread_json_response['status']
+            if thread_status == CONVERT[action]['expected_thread_status']:
+                global_running_sim[simu_name]['data']['status'] = CONVERT[action]['sim_status']
+                return {'success':True, 
+                        'status': thread_status, 
+                        'simulation_time': thread_json_response['simulation_time']}
+            else:
+                return {'success':False, 
+                        'status': thread_status, 
+                        'expected':CONVERT[action]['expected_thread_status']}
+        except:
+            return {'success': False, 'response': thread_response}
+    else: 
         return {'success':False, 'info': current_status}
 
 def send_via_socket(simu_name, data):
@@ -374,13 +432,14 @@ def send_via_socket(simu_name, data):
         comm_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         #socket_address = ('localhost', 5555)
         #comm_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        comm_socket.connect(socket_address)
+        comm_socket.connect((socket_address))
         comm_socket.sendall(data)
         status = comm_socket.recv(1024)
         comm_socket.close()
     except:
-        status = 'SOCKET ERROR'
+        status = 'SOCKET_ERROR'
         comm_socket.close()
+        #raise 
 
     return status
 
@@ -411,7 +470,7 @@ def simulate():
     ### Get data from JSON body
     data = request.json
     ### Check that the given model name is valid
-    model_filename     = data['model_filename']
+    model_filename     = data['model_name'] + '.yaml'
     abs_model_filename = os.path.join(yaml_path_dir, model_filename)
     if not os.path.exists(abs_model_filename):
         return {'success':False, 'info': "file does not exist! "+ abs_model_filename}
@@ -425,14 +484,13 @@ def simulate():
 
     ### Delete old result files .dat
     ### Wrong test TODO
-    for result_filename in filter(lambda fn: fn.endswith('.dat') and fn.startswith(os.path.splitext(model_filename)[0]), os.listdir(yaml_path_dir)):
+    for result_filename in filter(lambda fn: fn.endswith('.dat') and fn.startswith(data['model_name']), os.listdir(yaml_path_dir)):
         os.remove(os.path.join(yaml_path_dir, result_filename))
 
     ### Create simulation name - TODO store in DB
-    model_name     = model_filename.split('.')[0]
     global global_simu_id
     global_simu_id += 1
-    simu_name      = model_name + '_' + str(global_simu_id)
+    simu_name      = data['model_name'] + '_' + str(global_simu_id)
 
     ### Launch simulation
     ### NB : Don't set shell=True because then it is not possible to interact with the process inside the shell
@@ -452,6 +510,7 @@ def simulate():
     # Store all data and process for this simulation
     global_running_sim[simu_name] = {
         'data' : {
+            'model_name'        : data['model_name'],
             'model_filename'    : model_filename,
             'simulated_duration': sim_duration,
             'username'          : "celinebateaukessler",#TODO
@@ -579,8 +638,12 @@ def modify(simu_name, block_label):
 
     data = request.json
     global_data = {'block_label': block_label, 'block' : data}
-    status = send_via_socket(simu_name, json.dumps(global_data))
-    return {'success': True, 'status':status}
+    simu_response = send_via_socket(simu_name, json.dumps(global_data))
+    try:
+        json_simu_response = json.loads(simu_response)
+        return json_simu_response
+    except:
+        return {'success':False, 'response':simu_response}
 
 
 ############################################################################
@@ -627,7 +690,9 @@ def simulation_time_value_result(simu_name, result_filename):
             t,v = line.split(" ")
             result.append({"time":t, "value":v.rstrip('\r\n')})
 
-    return json.dumps(result)
+    return {"simulation_name": simu_name,
+            "result_filename": result_filename,
+            "data": result}
 
 #   Simulation logs
 ############################################################################
