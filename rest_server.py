@@ -253,16 +253,16 @@ def model_representation(model_name):
 
     
 ############################################################################
-#    RESOURCE = ATOMIC MODEL = BLOCK
+#    RESOURCE = ATOMIC MODEL CODE
 ############################################################################
 #   Blocks collection : no need for a global list of available blocks yet
 ############################################################################
 
 #   Block creation
 ############################################################################
-@route('/blocks', method=['POST'])
+@route('/codeblocks', method=['POST'])
 @enable_cors
-def create_block():
+def create_codeblock():
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
     
@@ -279,9 +279,9 @@ def create_block():
     
 #   Block update
 ############################################################################
-@route('/blocks/<block_name>', method=['POST'])
+@route('/codeblocks/<block_name>', method=['POST'])
 @enable_cors
-def update_model(block_name):
+def update_codeblock(block_name):
 
     upload    = request.files.get('upload')
     name, ext = os.path.splitext(upload.filename)
@@ -298,9 +298,9 @@ def update_model(block_name):
 
 #   Block deletion
 ############################################################################
-@route('/blocks/<block_name>', method=['DELETE'])
+@route('/codeblocks/<block_name>', method=['DELETE'])
 @enable_cors
-def delete_block(block_name):
+def delete_codeblock(block_name):
     block_abs_filename = os.path.join(block_path_dir, block_name)
     
     for ext in BLOCK_FILE_EXTENSIONS:
@@ -312,9 +312,9 @@ def delete_block(block_name):
 
 #   Blocks collection within a model
 ############################################################################
-@route('/models/<model_name>/blocks', method=['GET'])
+@route('/models/<model_name>/atomics', method=['GET'])
 @enable_cors
-def model_blocks_list(model_name):
+def model_atomicblocks_list(model_name):
     """ get the model blocks list from yaml
     """
     # get the models names (blocking operation)
@@ -326,9 +326,9 @@ def model_blocks_list(model_name):
 
 #   Block parameters (for a given model)
 ############################################################################
-@route('/models/<model_name>/blocks/<block_label>/params', method=['GET'])
+@route('/models/<model_name>/atomics/<block_label>/params', method=['GET'])
 @enable_cors
-def model_block_parameters(model_name, block_label):
+def model_atomicblock_parameters(model_name, block_label):
     """ get the parameters of the block
     """
     # get the models names (blocking operation)
@@ -341,7 +341,7 @@ def model_block_parameters(model_name, block_label):
 #   Block parameters update (for a given model)
 #   body example : {"maxStep":1, "maxValue":100, "minStep":1, "minValue":0, "start":0}
 ############################################################################
-@route('/models/<model_name>/blocks/<block_label>/params', method=['PUT'])
+@route('/models/<model_name>/atomics/<block_label>/params', method=['PUT'])
 @enable_cors
 def save_yaml(model_name, block_label):
     """ Update yaml file from devsimpy-mob
@@ -624,7 +624,7 @@ def process_resume(simu_name):
 ### example POST body : {"modelID":"A2", "paramName":"maxValue", "paramValue":"50"}
 ############################################################################
 
-@route('/simulations/<simu_name>/blocks/<block_label>/params', method=['PUT'])
+@route('/simulations/<simu_name>/atomics/<block_label>/params', method=['PUT'])
 @enable_cors
 def modify(simu_name, block_label):
     """
